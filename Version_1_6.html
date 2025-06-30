@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Math Flashcards v1.6.4 – Slow-flag on Results</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<style>
+/* ---------- base layout ---------- */
+body{font-family:'Segoe UI',sans-serif;background:#f1f7ff;margin:0;
+     display:flex;justify-content:center;align-items:flex-start;min-height:100vh;}
+#container{background:#fff;border-radius:10px;box-shadow:0 0 20px #0002;
+           margin:40px;padding:30px 24px 40px;max-width:420px;width:100%;position:relative;}
+h1{text-align:center;margin:0 0 6px;}
+button{background:#377dff;color:#fff;border:none;padding:8px 18px;border-radius:5px;
+       cursor:pointer;font-size:16px;}
+.center{text-align:center;}
+.small{font-size:.95em;color:#444;}
+/* ---------- number grid ---------- */
+.number-grid{display:grid;grid-template-columns:repeat(6,30px);gap:5px 8px;justify-content:center;margin-top:8px;}
+.num-check{width:18px;height:18px;}
+/* ---------- progress bar + runner ---------- */
+#progress-wrap{background:#dfe6ff;height:10px;border-radius:5px;margin:4px 0 18px;position:relative;}
+#progress-bar{background:#377dff;width:0%;height:100%;border-radius:5px;transition:width .2s linear;}
+#progress-runner{position:absolute;top:-18px;left:0;font-size:24px;width:26px;text-align:center;
+                 transform:scaleX(-1);animation:bob .6s ease-in-out infinite;pointer-events:none;}
+@keyframes bob{0%,100%{transform:translateY(0)   scaleX(-1);}
+               50%    {transform:translateY(-3px) scaleX(-1);} }
+/* ---------- flash-card ---------- */
+.flashcard{font-size:3.5rem;font-weight:600;background:#fff;border:4px solid #377dff;border-radius:12px;
+           display:inline-block;padding:25px 50px;margin:30px auto 20px;
+           box-shadow:0 6px 14px rgba(0,0,0,.12);min-width:220px;text-align:center;}
+/* ---------- combo streak ---------- */
+#streak{font-weight:bold;height:1.2em;text-align:center;margin-top:4px;color:#ff5722;}
+/* ---------- misc ---------- */
+.score-right{color:#0a0;} .score-wrong{color:#d00;}
+.results{font-size:1.1em;}
+.replay-note{font-size:.97em;color:#377dff;margin-bottom:10px;}
+#sound-toggle{margin:0 0 10px;display:flex;justify-content:center;align-items:center;cursor:pointer;}
+#sound-toggle span{margin-left:.5em;font-size:1.05em;}
+</style>
+</head>
+<body>
+<div id="container">
+  <h1>Math Flashcards</h1>
+
+  <!-- sound toggle -->
+  <div id="sound-toggle">
+    <input type="checkbox" id="sound-on" checked>
+    <span id="sound-label">Sound: On</span>
+  </div>
+
+  <!-- ---------------- configuration ---------------- -->
+  <div id="screen-config">
+    <form id="config-form">
+      <div>
+        <label>Operations:</label>
+        <label><input type="checkbox" name="ops" value="+" checked />+</label>
+        <label><input type="checkbox" name="ops" value="-" />−</label>
+        <label><input type="checkbox" name="ops" value="*" />×</label>
+        <label><input type="checkbox" name="ops" value="/" />÷</label>
+      </div>
+      <div style="margin:8px 0 2px;">Numbers to Practice:</div>
+      <div class="number-grid" id="number-grid"></div>
+
+      <div style="margin-top:10px;">
+        <label><input type="checkbox" id="timed-toggle"> Timed drill</label>
+        <span id="seconds-wrap" style="display:none;">
+          &nbsp;Seconds: <input type="number" id="seconds-input" value="60" min="10" max="600" style="width:60px;">
+        </span>
+      </div>
+
+      <div id="count-wrap" style="margin-top:8px;">
+        <label>Number of Facts:</label>
+        <input type="number" id="count-input" min="1" max="100" value="10">
+      </div>
+
+      <div class="center" style="margin-top:18px;">
+        <button type="submit">Start!</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ---------------- game ---------------- -->
+  <div id="screen-game" style="display:none;">
+    <div id="progress-wrap">
+      <div id="progress-bar"></div>
+      <div id="progress-runner">🏃‍♂️</div>
+    </div>
+    <div class="center small" id="question-count"></div>
+    <div class="flashcard" id="problem"></div>
+    <form id="answer-form" autocomplete="off" class="center">
+      <input type="number" id="answer-input" required style="font-size:1.1em;width:80px;">
+      <button type="submit">Submit</button>
+    </form>
+    <div id="streak" class="small"></div>
+    <div class="center small" id="feedback"></div>
+  </div>
+
+  <!-- ---------------- result ---------------- -->
+  <div id="screen-result" style="display:none;">
+    <div class="center">
+      <div class="results" id="results-list"></div>
+      <div class="replay-note" id="replay-note" style="display:none;"></div>
+      <div style="margin:16px 0;">
+        <button onclick="restart()">Practice Again</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   helpers & constants
+   ========================================================= */
+const SLOW_SECS = 4;
+const NUMBERS   = [...Array(13).keys()];
+function rand(a,b){return a + Math.floor(Math.random()*(b-a+1));}
+function opDisp(op){return op==='*'?'×':op==='/'?'÷':op;}
+
+/* =========================================================
+   build number grid
+   ========================================================= */
+const grid = document.getElementById('number-grid');
+if(grid.childElementCount===0){
+  NUMBERS.forEach(n=>{
+    grid.insertAdjacentHTML('beforeend',
+      `<label><input class="num-check" type="checkbox" name="nums" value="${n}" checked>${n}</label>`);
+  });
+}
+
+/* =========================================================
+   sound
+   ========================================================= */
+let soundEnabled = true;
+const ctx = window.AudioContext ? new AudioContext() : null;
+function play(type){
+  if(!soundEnabled||!ctx)return;
+  const now = ctx.currentTime, g=ctx.createGain(), o=ctx.createOscillator();
+  if(type==="correct"){o.type="sine";   o.frequency.setValueAtTime(880,now); o.frequency.linearRampToValueAtTime(1320,now+.12); g.gain.value=.18;}
+  else if(type==="slow"){o.type="triangle";o.frequency.setValueAtTime(440,now); o.frequency.linearRampToValueAtTime(660,now+.17); g.gain.value=.16;}
+  else if(type==="wrong"){o.type="square"; o.frequency.setValueAtTime(220,now); o.frequency.linearRampToValueAtTime(110,now+.12); g.gain.value=.19;}
+  o.connect(g).connect(ctx.destination); o.start(now); o.stop(now+.22);
+}
+document.getElementById('sound-on').onchange=e=>{
+  soundEnabled=e.target.checked;
+  document.getElementById('sound-label').textContent="Sound: "+(soundEnabled?"On":"Off");
+};
+document.body.addEventListener('click',()=>{ctx&&ctx.resume&&ctx.resume();},{once:true});
+
+/* =========================================================
+   element refs
+   ========================================================= */
+const timedToggle=document.getElementById('timed-toggle');
+const secondsWrap=document.getElementById('seconds-wrap');
+const countWrap=document.getElementById('count-wrap');
+timedToggle.onchange=()=>{secondsWrap.style.display=timedToggle.checked?'inline':'none';
+                          countWrap.style.display  =timedToggle.checked?'none':'block';};
+
+const progressBar={el:document.getElementById('progress-bar'),set(p){this.el.style.width=p+'%';}};
+const runner=document.getElementById('progress-runner');
+function moveRunner(pct){runner.style.left=`calc(${pct}% - 13px)`;}
+
+const problemEl=document.getElementById('problem');
+const qCountEl=document.getElementById('question-count');
+const feedbackEl=document.getElementById('feedback');
+const streakEl=document.getElementById('streak');
+const replayNote=document.getElementById('replay-note');
+
+/* =========================================================
+   state variables
+   ========================================================= */
+let problems=[],current=0,answers=[],startTime=0,combo=0;
+let timedMode=false,totalSecs=60,timerId=0,startMillis=0;
+let sessionMissedSlow=[];                        // review list
+let activeOps=[],activeNums=[];
+
+/* =========================================================
+   problem generator
+   ========================================================= */
+function createProblem(ops, nums){
+  const op = ops[rand(0,ops.length-1)];
+  let a = nums[rand(0,nums.length-1)], b = nums[rand(0,nums.length-1)], p;
+  if(op==='/'){const prod=a*b; p={a:prod,b:b||1,op:'/',answer:b?prod/b:0};}
+  else if(op==='-'){if(a<b)[a,b]=[b,a]; p={a,b,op:'-',answer:a-b};}
+  else if(op==='*'){p={a,b,op:'*',answer:a*b};}
+  else             {p={a,b,op:'+',answer:a+b};}
+  p.q = `${p.a} ${opDisp(p.op)} ${p.b}`;
+  return p;
+}
+
+/* sprinkle review facts via shuffle */
+function makeProblems(cfg, target, preselected=[]){
+  const used  = new Set(preselected.map(p=>`${p.a}_${p.op}_${p.b}`));
+  const list  = [...preselected.map(p=>({...p}))];
+
+  while(list.length<target && used.size<500){
+    const p=createProblem(cfg.ops,cfg.nums), key=`${p.a}_${p.op}_${p.b}`;
+    if(used.has(key)) continue;
+    used.add(key); list.push(p);
+  }
+  for(let i=list.length-1;i>0;i--){const j=rand(0,i); [list[i],list[j]]=[list[j],list[i]];}
+  return list;
+}
+
+/* =========================================================
+   screens helper
+   ========================================================= */
+function show(id){['screen-config','screen-game','screen-result'].forEach(s=>{
+  document.getElementById(s).style.display = s===id?'block':'none';
+});}
+
+/* =========================================================
+   progress update
+   ========================================================= */
+function updateProgress(){
+  let pct;
+  if(timedMode){
+    const elapsed=(Date.now()-startMillis)/1000;
+    pct=(elapsed/totalSecs)*100;
+    progressBar.el.style.background = pct>90 ? '#d9534f' : '#377dff';
+  }else pct=current/problems.length*100;
+  progressBar.set(pct); moveRunner(pct);
+}
+
+/* =========================================================
+   countdown timer
+   ========================================================= */
+function startCountdown(){
+  startMillis=Date.now();
+  timerId=setInterval(()=>{
+    const elapsed=(Date.now()-startMillis)/1000;
+    if(elapsed>=totalSecs){clearInterval(timerId);showResults();}
+    updateProgress();
+  },100);
+}
+
+/* =========================================================
+   showProblem
+   ========================================================= */
+function showProblem(){
+  if(!timedMode && current>=problems.length){showResults();return;}
+  if(timedMode && current>=problems.length){problems.push(createProblem(activeOps,activeNums));}
+
+  const p=problems[current];
+  problemEl.textContent=p.q;
+  qCountEl.textContent=timedMode
+      ? `Correct: ${answers.filter(a=>a.correct).length}`
+      : `Question ${current+1} of ${problems.length}`;
+
+  document.getElementById('answer-input').value='';
+  feedbackEl.textContent='';
+  document.getElementById('answer-input').focus();
+  updateProgress();
+}
+
+/* =========================================================
+   CONFIG submit
+   ========================================================= */
+document.getElementById('config-form').onsubmit=e=>{
+  e.preventDefault();
+
+  activeOps =[...document.querySelectorAll('input[name="ops"]:checked')].map(i=>i.value);
+  activeNums=[...document.querySelectorAll('input[name="nums"]:checked')].map(i=>+i.value);
+  if(!activeOps.length) return alert("Choose at least one operation.");
+  if(!activeNums.length) return alert("Select at least one number.");
+
+  timedMode = timedToggle.checked;
+  totalSecs = timedMode ? Math.max(10,Math.min(600,parseInt(document.getElementById('seconds-input').value)||60)) : 0;
+  const count = timedMode ? Math.min(500,Math.ceil(totalSecs*2))
+                          : parseInt(document.getElementById('count-input').value)||10;
+
+  problems = makeProblems({ops:activeOps,nums:activeNums}, count, sessionMissedSlow);
+  sessionMissedSlow=[];                          // reset for new round
+
+  answers=[]; current=0; combo=0;
+  progressBar.set(0); moveRunner(0);
+  if(timedMode) startCountdown();
+  startTime=Date.now();
+
+  show('screen-game'); showProblem();
+};
+
+/* ENTER key submits */
+document.getElementById('answer-input').addEventListener('keydown',e=>{
+  if(e.key==="Enter"){e.preventDefault();document.getElementById('answer-form').requestSubmit();}
+});
+
+/* =========================================================
+   answer submission
+   ========================================================= */
+document.getElementById('answer-form').onsubmit=e=>{
+  e.preventDefault();
+  const p=problems[current];
+  const val=Number(document.getElementById('answer-input').value);
+  const elapsed=(Date.now()-startTime)/1000;
+  const correct=Math.abs(val-p.answer)<.001;
+  const fast=elapsed<SLOW_SECS;
+
+  answers.push({...p,userAns:val,correct,time:elapsed});
+  combo=(correct&&fast)?combo+1:0;
+  streakEl.textContent = combo>1 ? `🔥 Combo x${combo}!` : '';
+
+  play(correct ? (fast?"correct":"slow") : "wrong");
+
+  feedbackEl.innerHTML=correct
+     ? (fast?"<span style='color:green'>Correct!</span>":"<span style='color:goldenrod'>Correct, but faster!</span>")
+     : `<span style='color:red'>Wrong. Correct answer: ${p.answer}</span>`;
+
+  startTime=Date.now(); current++;
+
+  if(!timedMode && current>=problems.length){
+    setTimeout(showResults,800);
+  }else{
+    setTimeout(showProblem, correct?500:900);
+  }
+};
+
+/* =========================================================
+   results
+   ========================================================= */
+function showResults(){
+  clearInterval(timerId);
+  show('screen-result');
+  progressBar.set(100); moveRunner(100);
+
+  const correctCt=answers.filter(a=>a.correct).length;
+  let html = timedMode
+    ? `<b class="score-right">${correctCt} correct</b> out of ${answers.length} attempted in ${totalSecs}s.<br><br>`
+    : `<b class="score-right">${correctCt} correct</b> <b class="score-wrong">${answers.length-correctCt} wrong</b><br><br>`;
+
+  answers.forEach((a,i)=>{
+    const slowFlag = a.correct && a.time>SLOW_SECS ? " <span class='small'>(slow)</span>" : "";
+    html += `<span class="${a.correct?'score-right':'score-wrong'}">${i+1}. ${a.q} = ${a.answer} — You: ${a.userAns} (${a.correct?'✓':'✗'})${slowFlag}</span><br>`;
+  });
+  document.getElementById('results-list').innerHTML = html;
+
+  /* build list of missed/slow for next round */
+  sessionMissedSlow = answers.filter(a=>!a.correct || a.time>SLOW_SECS)
+      .map(({a,b,op,answer,q})=>({a,b,op,answer,q}));
+
+  if(sessionMissedSlow.length){
+    replayNote.style.display='block';
+    replayNote.innerHTML=`Next round will start by repeating your ${sessionMissedSlow.length} missed/slow fact${sessionMissedSlow.length>1?'s':''}.`;
+  }else{
+    replayNote.style.display='none';
+  }
+}
+
+/* =========================================================
+   restart
+   ========================================================= */
+function restart(){clearInterval(timerId);show('screen-config');}
+</script>
+</body>
+</html>
