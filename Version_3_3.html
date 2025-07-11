@@ -1,0 +1,654 @@
+<head>
+  <meta charset="UTF-8" />
+  <title>Math Flashcards</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f1f7ff;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+    }
+    #container {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 0 20px #0002;
+      margin: 40px;
+      padding: 30px 24px 40px;
+      max-width: 420px;
+      width: 100%;
+      position: relative;
+    }
+    button {
+      background: #377dff;
+      color: #fff;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .center { text-align: center; }
+    .small { font-size: 0.95em; color: #444; }
+    .score-right { color: #0a0; }
+    .score-wrong { color: #d00; }
+    .flashcard {
+      font-size: 3.5rem;
+      font-weight: 600;
+      background: #fff;
+      border: 4px solid #377dff;
+      border-radius: 12px;
+      display: block;
+      padding: 5%;
+      margin: 30px auto 20px;
+      min-width: 200px;
+      text-align: center;
+      width: 80%;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .pulse-correct {
+      border-color: #0a0;
+      box-shadow: 0 0 8px #0a0;
+      animation: pulseGreen 0.6s ease-in-out;
+    }
+    .pulse-wrong {
+      border-color: #d00;
+      box-shadow: 0 0 8px #d00;
+      animation: pulseRed 0.6s ease-in-out;
+    }
+    @keyframes pulseGreen {
+      0% { border-width: 4px; box-shadow: 0 0 8px #0a0; }
+      50% { border-width: 6px; box-shadow: 0 0 16px #0a0; }
+      100% { border-width: 4px; box-shadow: 0 0 8px #0a0; }
+    }
+    @keyframes pulseRed {
+      0% { border-width: 4px; box-shadow: 0 0 8px #d00; }
+      50% { border-width: 6px; box-shadow: 0 0 16px #d00; }
+      100% { border-width: 4px; box-shadow: 0 0 8px #d00; }
+    }
+    #streak {
+      font-weight: bold;
+      height: 1.2em;
+      text-align: center;
+      margin-top: 4px;
+      color: #ff5722;
+      font-size: 1.2em;
+      min-height: 24px;
+    }
+    #progress {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 0.9em;
+      color: #666;
+    }
+    #timer {
+      text-align: center;
+      margin-top: 5px;
+      font-size: 1.1em;
+      font-weight: bold;
+      color: #d32f2f;
+      display: none;
+    }
+    .progress-bar-container {
+      width: 80%;
+      height: 10px;
+      background-color: #e0e0e0;
+      border-radius: 5px;
+      margin: 15px auto 10px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background-color: #377dff;
+      width: 0%;
+      transition: width 0.3s ease-in-out;
+    }
+    input[type="number"] {
+      font-size: 1.1em;
+      width: 80px;
+    }
+    .number-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 30px);
+      gap: 5px 8px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .num-check {
+      width: 18px;
+      height: 18px;
+    }
+    #mobile-keypad {
+      display: none;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 16px auto 0;
+      max-width: 260px;
+    }
+    .keypad-btn {
+      font-size: 1.5rem;
+      padding: 14px;
+      border-radius: 10px;
+      border: none;
+      background-color: #377dff;
+      color: white;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+      cursor: pointer;
+    }
+    .keypad-btn:active {
+      background-color: #255ecf;
+    }
+    #results-list {
+      font-size: 1em;
+      margin-top: 10px;
+    }
+    #screen-result { display: none; text-align: center; }
+    /* ===== Scoring Boxes on Results Screen ===== */
+    .score-boxes {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin: 10px 0;
+    }
+    .score-box {
+      background: #f9f9f9;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+      min-width: 100px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .score-box-label {
+      font-size: 0.8em;
+      color: #666;
+      margin-bottom: 5px;
+    }
+    .score-box-value {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #333;
+    }
+    /* ===== New Celebration Message Styling ===== */
+    .celebration-message {
+      color: #ff5722;
+      font-size: 1.2em;
+      font-weight: bold;
+      margin: 10px 0;
+      animation: celebrateText 0.8s ease-in-out infinite alternate;
+    }
+    @keyframes celebrateText {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.05); }
+    }
+    @media (max-width: 600px) {
+      #mobile-keypad { display: grid; }
+      #answer-input { width: 100px; text-align: center; }
+      .flashcard {
+        width: 90%;
+      }
+      .progress-bar-container {
+        width: 90%;
+      }
+      .score-boxes {
+        flex-direction: column;
+        gap: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div id="container">
+  <h1 class="center">Math Flashcards</h1>
+
+  <!-- Configuration Screen -->
+  <div id="screen-config">
+    <form id="config-form">
+      <!-- Operation Selection -->
+      <div>
+        <label>Operations:</label>
+        <label><input type="checkbox" name="ops" value="+" checked />+</label>
+        <label><input type="checkbox" name="ops" value="-" />−</label>
+        <label><input type="checkbox" name="ops" value="*" />×</label>
+        <label><input type="checkbox" name="ops" value="/" />÷</label>
+      </div>
+      
+      <!-- Number Range Selection -->
+      <div style="margin:8px 0 2px;">Numbers to Practice:</div>
+      <div class="number-grid" id="number-grid"></div>
+
+      <!-- Timer Settings -->
+      <div style="margin-top:10px;">
+        <label><input type="checkbox" id="timed-toggle"> Timed drill</label>
+        <span id="seconds-wrap" style="display:none;">
+          &nbsp;Seconds: <input type="number" id="seconds-input" value="60" min="10" max="600" style="width:60px;">
+        </span>
+      </div>
+
+      <!-- Problem Count Settings -->
+      <div id="count-wrap" style="margin-top:8px;">
+        <label>Number of Facts:</label>
+        <input type="number" id="count-input" min="1" max="100" value="10">
+      </div>
+
+      <div class="center" style="margin-top:18px;">
+        <button type="submit">Start!</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="screen-game" style="display:none;">
+    <div class="flashcard" id="problem">?</div>
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <div id="progress"></div>
+    <div id="timer"></div>
+    <div id="streak"></div>
+    
+    <form id="answer-form" autocomplete="off">
+      <div class="center">
+        <input type="number" id="answer-input" inputmode="none" />
+        <button type="submit">Submit</button>
+      </div>
+    </form>
+    
+    <!-- Mobile Number Pad -->
+    <div id="mobile-keypad">
+      <button class="keypad-btn" data-key="1">1</button>
+      <button class="keypad-btn" data-key="2">2</button>
+      <button class="keypad-btn" data-key="3">3</button>
+      <button class="keypad-btn" data-key="4">4</button>
+      <button class="keypad-btn" data-key="5">5</button>
+      <button class="keypad-btn" data-key="6">6</button>
+      <button class="keypad-btn" data-key="7">7</button>
+      <button class="keypad-btn" data-key="8">8</button>
+      <button class="keypad-btn" data-key="9">9</button>
+      <button class="keypad-btn" data-key="back">⌫</button>
+      <button class="keypad-btn" data-key="0">0</button>
+      <button class="keypad-btn" data-key="enter">⏎</button>
+    </div>
+  </div>
+
+  <!-- Results Screen -->
+  <div id="screen-result">
+    <div id="results-list"></div>
+    <div id="replay-note" class="small" style="margin-top:8px;"></div>
+    <div style="margin-top:16px;">
+      <button onclick="restart()">Practice Again</button>
+    </div>
+  </div>
+</div>
+<!-- Include canvas-confetti library for celebratory animation -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+</body>
+<script>
+/**
+ * Math Flashcards v3.3.0
+ * 
+ * Version History:
+ * - v3.3.0: Added celebratory confetti animation on results screen for 100% accuracy and avg speed < 6s for correct answers
+ * - v3.2.0: Added summary screen scoring system with accuracy percentage and average time for correct answers, styled in side-by-side boxes
+ * - v3.1.0: Added visual feedback pulse (green for correct, red for wrong) to flashcard border
+ * - v3.0.0: Stable Baseline Release - Locked in core features
+ * - v2.5.0: Updated progress bar to show time remaining in Timed Mode, removed problem count text in Timed Mode
+ * - v2.4.0: Implemented Timed run mode with countdown timer
+ * - v2.3.0: Simplified flashcard styling and centering
+ * - v2.2.0: Added visual progress bar, fixed flashcard centering
+ * - v2.1.0: Fixed streak display visibility, added progress indicator
+ * - v2.0.0: Code organization and documentation
+ * - v1.9.2: Fixed timing bug where timer started before problem display
+ * - v1.9.0: Added review queue for missed/slow problems
+ * - v1.8.0: Added combo system and audio feedback
+ * 
+ * Features:
+ * - Multiple operations support (+, -, ×, ÷)
+ * - Customizable number range (0-12)
+ * - Timed and count-based practice modes with countdown display
+ * - Progress bar shows time remaining in Timed Mode or problem progress in Count Mode
+ * - Visual feedback pulse on flashcard border (green for correct, red for wrong)
+ * - Audio feedback for correct/wrong answers
+ * - Combo system for consecutive fast correct answers
+ * - Review queue for missed or slow problems
+ * - Mobile-friendly with touch keypad
+ * - Summary screen with accuracy and speed stats in styled boxes
+ * - Celebratory confetti animation for perfect performance (100% accuracy, avg speed < 6s)
+ */
+
+// ===== Constants =====
+const SLOW_SECS = 5;
+const CELEBRATION_SPEED_THRESHOLD = 6.0; // Seconds threshold for celebration
+
+// ===== Audio System =====
+const ctx = window.AudioContext ? new AudioContext() : null;
+
+function play(type) {
+  if (!ctx) return;
+  const now = ctx.currentTime, g = ctx.createGain(), o = ctx.createOscillator();
+  if (type === "correct") {
+    o.type = "sine"; 
+    o.frequency.setValueAtTime(880, now); 
+    o.frequency.linearRampToValueAtTime(1320, now + .12); 
+    g.gain.value = .18;
+  } else if (type === "slow") {
+    o.type = "sine"; 
+    o.frequency.setValueAtTime(660, now); // Lower pitch for slow but correct
+    o.frequency.linearRampToValueAtTime(880, now + .12); 
+    g.gain.value = .18;
+  } else {
+    o.type = "square"; 
+    o.frequency.setValueAtTime(220, now); 
+    o.frequency.linearRampToValueAtTime(110, now + .12); 
+    g.gain.value = .19;
+  }
+  o.connect(g).connect(ctx.destination); 
+  o.start(now); 
+  o.stop(now + .22);
+}
+
+document.body.addEventListener('click', () => { ctx && ctx.resume && ctx.resume(); }, { once: true });
+
+// ===== Initialize Number Grid =====
+const numberGrid = document.getElementById('number-grid');
+for (let i = 0; i <= 12; i++) {
+  numberGrid.insertAdjacentHTML('beforeend',
+    `<label><input class="num-check" type="checkbox" name="nums" value="${i}" checked>${i}</label>`);
+}
+
+// ===== DOM References =====
+const form = document.getElementById('answer-form');
+const answerInput = document.getElementById('answer-input');
+const problemEl = document.getElementById('problem');
+const streakEl = document.getElementById('streak');
+const progressEl = document.getElementById('progress');
+const progressBarEl = document.getElementById('progress-bar');
+const timerEl = document.getElementById('timer');
+const keypadButtons = document.querySelectorAll('.keypad-btn');
+const timedToggle = document.getElementById('timed-toggle');
+const secondsWrap = document.getElementById('seconds-wrap');
+const countWrap = document.getElementById('count-wrap');
+const resultsList = document.getElementById('results-list');
+const replayNote = document.getElementById('replay-note');
+
+// ===== UI Event Handlers =====
+timedToggle.onchange = () => {
+  secondsWrap.style.display = timedToggle.checked ? 'inline' : 'none';
+  countWrap.style.display = timedToggle.checked ? 'none' : 'block';
+};
+
+// ===== Game State =====
+let problems = [], answers = [], current = 0, combo = 0, reviewQueue = [];
+let isTimedMode = false, timeLimit = 0, timerInterval = null, gameStartTime = 0;
+
+// ===== Core Functions =====
+function calculate(a, op, b) {
+  switch (op) {
+    case '+': return a + b;
+    case '-': return a - b;
+    case '*': return a * b;
+    case '/': return a / b;
+    default: return NaN;
+  }
+}
+
+function rand(a, b) {
+  return a + Math.floor(Math.random() * (b - a + 1));
+}
+
+function opDisp(op) {
+  return op === '*' ? '×' : op === '/' ? '÷' : op;
+}
+
+// ===== Problem Generation =====
+function generateProblems(cfg, count) {
+  const base = [], used = new Set();
+  const carry = [...reviewQueue];
+  const carryMax = Math.floor(count / 3);
+  const carryUsed = carry.slice(0, carryMax);
+  carryUsed.forEach(p => used.add(`${p.a}_${p.op}_${p.b}`));
+  while (base.length < count - carryUsed.length) {
+    const op = cfg.ops[rand(0, cfg.ops.length - 1)];
+    let a = cfg.nums[rand(0, cfg.nums.length - 1)];
+    let b = cfg.nums[rand(0, cfg.nums.length - 1)];
+    if (op === '-') { if (a < b) [a, b] = [b, a]; }
+    if (op === '/') { b = b === 0 ? 1 : b; a = a * b; }
+    const key = `${a}_${op}_${b}`;
+    if (used.has(key)) continue;
+    used.add(key);
+    const answer = calculate(a, op, b);
+    base.push({ a, b, op, answer });
+  }
+  return [...carryUsed, ...base].map(p => ({
+    ...p,
+    q: `${p.a} ${opDisp(p.op)} ${p.b}`
+  })).sort(() => Math.random() - 0.5);
+}
+
+// ===== Timer Functions =====
+function startTimer() {
+  gameStartTime = Date.now();
+  timerEl.style.display = 'block';
+  updateTimer();
+  timerInterval = setInterval(updateTimer, 1000);
+}
+
+function updateTimer() {
+  const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
+  const remaining = timeLimit - elapsed;
+  if (remaining <= 0) {
+    clearInterval(timerInterval);
+    timerEl.textContent = 'Time’s up!';
+    progressBarEl.style.width = '0%'; // Ensure progress bar is at 0 when time's up
+    showResults();
+  } else {
+    timerEl.textContent = `Time left: ${remaining}s`;
+    // Update progress bar to show time remaining in Timed Mode
+    const timePercent = (remaining / timeLimit) * 100;
+    progressBarEl.style.width = `${timePercent}%`;
+  }
+}
+
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  timerEl.style.display = 'none';
+  timerEl.textContent = '';
+}
+
+// ===== Game Flow =====
+function showProblem() {
+  if (isTimedMode && timeLimit - Math.floor((Date.now() - gameStartTime) / 1000) <= 0) {
+    return showResults();
+  }
+  if (current >= problems.length) return showResults();
+  const p = problems[current];
+  p.start = Date.now();
+  problemEl.textContent = p.q;
+  answerInput.value = '';
+  answerInput.focus();
+  // Show problem count only in non-timed mode
+  if (!isTimedMode) {
+    progressEl.textContent = `Problem ${current + 1} of ${problems.length}`;
+    // Update progress bar based on problem progress in non-timed mode
+    const progressPercent = ((current + 1) / problems.length) * 100;
+    progressBarEl.style.width = `${progressPercent}%`;
+  } else {
+    progressEl.textContent = ''; // Omit problem count in timed mode
+  }
+}
+
+form.onsubmit = e => {
+  e.preventDefault();
+  if (answerInput.value.trim() === '') {
+    return;
+  }
+  const val = Number(answerInput.value);
+  const p = problems[current];
+  const time = (Date.now() - p.start) / 1000;
+  const correct = Math.abs(val - p.answer) < 0.001;
+  const fast = time < SLOW_SECS;
+  combo = (correct && fast) ? combo + 1 : 0;
+  if (correct) {
+    streakEl.textContent = combo > 1 ? `🔥 Combo x${combo}!` : '';
+    play(fast ? "correct" : "slow");
+    // Trigger green pulse for correct answer
+    problemEl.classList.add('pulse-correct');
+    setTimeout(() => problemEl.classList.remove('pulse-correct'), 600);
+  } else {
+    combo = 0;
+    streakEl.textContent = '';
+    play("wrong");
+    // Trigger red pulse for wrong answer
+    problemEl.classList.add('pulse-wrong');
+    setTimeout(() => problemEl.classList.remove('pulse-wrong'), 600);
+  }
+  answers.push({ ...p, user: val, correct, time });
+  current++;
+  setTimeout(showProblem, correct ? 500 : 900);
+};
+
+document.getElementById('config-form').onsubmit = e => {
+  e.preventDefault();
+  const ops = [...document.querySelectorAll('input[name="ops"]:checked')].map(i => i.value);
+  const nums = [...document.querySelectorAll('input[name="nums"]:checked')].map(i => +i.value);
+  if (!ops.length || !nums.length) return alert("Choose operations and numbers.");
+  
+  isTimedMode = document.getElementById('timed-toggle').checked;
+  if (isTimedMode) {
+    timeLimit = parseInt(document.getElementById('seconds-input').value) || 60;
+    // Generate a larger set of problems in timed mode to ensure enough content
+    problems = generateProblems({ ops, nums }, 50);
+  } else {
+    const count = parseInt(document.getElementById('count-input').value) || 10;
+    problems = generateProblems({ ops, nums }, count);
+  }
+  
+  answers = []; combo = 0; current = 0;
+  document.getElementById('screen-config').style.display = 'none';
+  document.getElementById('screen-game').style.display = 'block';
+  document.getElementById('screen-result').style.display = 'none';
+  progressBarEl.style.width = isTimedMode ? '100%' : '0%'; // Start at 100% for countdown in timed mode
+  if (isTimedMode) {
+    startTimer();
+  } else {
+    stopTimer();
+  }
+  showProblem();
+};
+
+keypadButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const key = btn.dataset.key;
+    if (key === 'back') {
+      answerInput.value = answerInput.value.slice(0, -1);
+    } else if (key === 'enter') {
+      form.requestSubmit();
+    } else {
+      answerInput.value += key;
+    }
+  });
+});
+
+function showResults() {
+  stopTimer();
+  document.getElementById('screen-game').style.display = 'none';
+  document.getElementById('screen-result').style.display = 'block';
+  const correctCt = answers.filter(a => a.correct).length;
+  const totalCt = answers.length;
+  const accuracy = totalCt > 0 ? Math.round((correctCt / totalCt) * 100) : 0;
+  let avgTimeCorrect = '';
+  let celebrationMessage = '';
+  if (correctCt > 0) {
+    const correctTimes = answers.filter(a => a.correct).map(a => a.time);
+    const avgTime = correctTimes.reduce((sum, t) => sum + t, 0) / correctCt;
+    avgTimeCorrect = avgTime.toFixed(1); // Round to 1 decimal place
+    // Check for celebration criteria: 100% accuracy and avg speed under threshold
+    if (accuracy === 100 && avgTime < CELEBRATION_SPEED_THRESHOLD) {
+      celebrationMessage = '<div class="celebration-message">Perfect Performance! 🎉</div>';
+      triggerConfetti();
+    }
+  }
+  let html = `<b class="score-right">${correctCt} correct</b>, <b class="score-wrong">${totalCt - correctCt} wrong</b><br>`;
+  if (isTimedMode) {
+    html += `<div class="small">Completed in ${timeLimit}s</div>`;
+  }
+  html += celebrationMessage;
+  html += `<div class="score-boxes">
+    <div class="score-box">
+      <div class="score-box-label">Accuracy</div>
+      <div class="score-box-value">${accuracy}%</div>
+    </div>`;
+  if (avgTimeCorrect !== '') {
+    html += `<div class="score-box">
+      <div class="score-box-label">Avg. Speed (Correct)</div>
+      <div class="score-box-value">${avgTimeCorrect}s</div>
+    </div>`;
+  }
+  html += `</div><br>`;
+  answers.forEach((a, i) => {
+    const slow = a.correct && a.time > SLOW_SECS ? " <span class='small'>(slow)</span>" : "";
+    html += `<div class="${a.correct ? 'score-right' : 'score-wrong'}">${i + 1}. ${a.q} = ${a.answer} — You: ${a.user} (${a.correct ? '✓' : '✗'})${slow}</div>`;
+  });
+  resultsList.innerHTML = html;
+
+  const slowOnes = answers.filter(a => !a.correct || a.time > SLOW_SECS);
+  const shuffled = slowOnes.sort(() => Math.random() - 0.5);
+  const reviewCount = Math.min(Math.floor((isTimedMode ? answers.length : problems.length) / 3), shuffled.length);
+  reviewQueue = shuffled.slice(0, reviewCount).map(({ a, b, op, answer }) => ({ a, b, op, answer }));
+
+  replayNote.innerHTML = reviewQueue.length
+    ? `Next round will review ${reviewQueue.length} missed/slow problems.`
+    : `All clear! Nothing to review.`;
+}
+
+// ===== Confetti Animation for Perfect Performance =====
+function triggerConfetti() {
+  // Ensure confetti library is available
+  if (typeof confetti === 'undefined') return;
+  
+  // Animation parameters for a celebratory effect
+  const duration = 3 * 1000; // 3 seconds of confetti
+  const animationEnd = Date.now() + duration;
+  const defaults = {
+    startVelocity: 30,
+    spread: 360,
+    ticks: 60,
+    zIndex: 0
+  };
+
+  function randomInRange(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+
+  const interval = setInterval(function() {
+    const timeLeft = animationEnd - Date.now();
+    if (timeLeft <= 0) {
+      return clearInterval(interval);
+    }
+    const particleCount = 50 * (timeLeft / duration);
+    // Launch confetti from two different positions for a wider effect
+    confetti(Object.assign({}, defaults, {
+      particleCount,
+      origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+    }));
+    confetti(Object.assign({}, defaults, {
+      particleCount,
+      origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+    }));
+  }, 250);
+}
+
+function restart() {
+  document.getElementById('screen-result').style.display = 'none';
+  document.getElementById('screen-config').style.display = 'block';
+  streakEl.textContent = '';
+  progressEl.textContent = '';
+  progressBarEl.style.width = '0%'; // Reset progress bar on restart
+  stopTimer();
+}
+</script>
