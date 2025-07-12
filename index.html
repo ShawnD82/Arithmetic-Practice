@@ -13,9 +13,6 @@
       min-height: 100vh;
       touch-action: manipulation; /* Disable pinch-zoom and double-tap zoom */
     }
-    body {
-      overflow: hidden; /* Prevent unnecessary scrolling */
-    }
     #container {
       background: #fff;
       border-radius: 10px;
@@ -304,7 +301,7 @@
  * Math Flashcards v3.4.0
  * 
  * Version History:
- * - v3.4.0: Mobile usability enhancements - round keypad buttons, disabled zoom, hide title during game
+ * - v3.4.0: Mobile usability enhancements - round keypad buttons, disabled zoom, hide title during game, scrolling enabled on results
  * - v3.3.0: Added celebratory confetti animation on results screen for 100% accuracy and avg speed < 6s for correct answers
  * - v3.2.0: Added summary screen scoring system with accuracy percentage and average time for correct answers, styled in side-by-side boxes
  * - v3.1.0: Added visual feedback pulse (green for correct, red for wrong) to flashcard border
@@ -332,6 +329,7 @@
  * - Summary screen with accuracy and speed stats in styled boxes
  * - Celebratory confetti animation for perfect performance (100% accuracy, avg speed < 6s)
  * - Title hidden during game on mobile to save space
+ * - Scrolling enabled only on results screen for mobile usability
  */
 
 // ===== Constants =====
@@ -367,6 +365,25 @@ function play(type) {
 
 document.body.addEventListener('click', () => { ctx && ctx.resume && ctx.resume(); }, { once: true });
 
+// ===== Prevent Default Touch Behaviors for Zoom =====
+document.addEventListener('touchstart', function(e) {
+  // Allow touch events on interactive elements like buttons and inputs
+  if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') {
+    return;
+  }
+  // Prevent multi-touch gestures (like pinch-zoom) by checking touch count
+  if (e.touches.length > 1) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
+document.addEventListener('touchmove', function(e) {
+  // Prevent multi-touch scrolling/zooming unless on results screen
+  if (e.touches.length > 1) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
 // ===== Initialize Number Grid =====
 const numberGrid = document.getElementById('number-grid');
 for (let i = 0; i <= 12; i++) {
@@ -399,6 +416,16 @@ timedToggle.onchange = () => {
 // ===== Game State =====
 let problems = [], answers = [], current = 0, combo = 0, reviewQueue = [];
 let isTimedMode = false, timeLimit = 0, timerInterval = null, gameStartTime = 0;
+
+// ===== Helper to Control Scrolling =====
+function updateScrollBehavior(screen) {
+  const body = document.body;
+  if (screen === 'results') {
+    body.style.overflow = 'auto'; // Enable scrolling on results screen
+  } else {
+    body.style.overflow = 'hidden'; // Disable scrolling on config and game screens
+  }
+}
 
 // ===== Core Functions =====
 function calculate(a, op, b) {
@@ -551,6 +578,8 @@ document.getElementById('config-form').onsubmit = e => {
   document.getElementById('screen-result').style.display = 'none';
   // Hide title during game to save space on mobile
   gameTitle.style.display = 'none';
+  // Disable scrolling during game
+  updateScrollBehavior('game');
   progressBarEl.style.width = isTimedMode ? '100%' : '0%'; // Start at 100% for countdown in timed mode
   if (isTimedMode) {
     startTimer();
@@ -579,6 +608,8 @@ function showResults() {
   document.getElementById('screen-result').style.display = 'block';
   // Show title again on results screen
   gameTitle.style.display = 'block';
+  // Enable scrolling on results screen
+  updateScrollBehavior('results');
   const correctCt = answers.filter(a => a.correct).length;
   const totalCt = answers.length;
   const accuracy = totalCt > 0 ? Math.round((correctCt / totalCt) * 100) : 0;
@@ -669,9 +700,14 @@ function restart() {
   document.getElementById('screen-config').style.display = 'block';
   // Show title on config screen
   gameTitle.style.display = 'block';
+  // Disable scrolling on config screen
+  updateScrollBehavior('config');
   streakEl.textContent = '';
   progressEl.textContent = '';
   progressBarEl.style.width = '0%'; // Reset progress bar on restart
   stopTimer();
 }
+
+// Initialize scroll behavior on page load (config screen)
+updateScrollBehavior('config');
 </script>
